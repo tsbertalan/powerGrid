@@ -38,5 +38,17 @@ end
 % functional approximation
 FX = L*Y;
 
-% leave-one-out cross-validation errors
-RES = sqrt(mean(((Y-FX)./(1-diag(L))).^2)) / std(Y);
+% % leave-one-out cross-validation errors
+% RES = sqrt(mean(((Y-FX)./(1-diag(L))).^2)) / std(Y);
+
+num = 0;
+for i=1:n
+    num = num + (Y(i) - FX(i))^2;
+end
+
+den = 0;
+for i=1:n
+    den = den + Y(i)^2;
+end
+
+RES = sqrt(num / den);
