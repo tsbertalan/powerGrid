@@ -2,6 +2,8 @@
 % for a swiss roll data set
 clear all;
 close all;
+figureDir = '../../doc/images/';
+
 
 %% Load datafile.
 load('../../data/generatorLoads.mat');
@@ -25,9 +27,10 @@ xlim([1, size(data, 2)]);
 xlabel('time [h]');
 ylabel('generator load');
 title('raw data');
+saveas(gcf(), sprintf('%s/rawData.png', figureDir));
+
 
 %% diffusion maps
-
 % pairwise distance matrix
 dz = squareform(pdist(data));
 
@@ -37,21 +40,12 @@ epsVals = logspace(-3, 3, 64);
 ksumVals = [];
 for EPS=epsVals
     W = exp(-(dz.^2) ./ (EPS^2));
-
-    % compute row sums
-    d = sum(W);
-
-    % normalized symmetric kernel matrix
-    normPow = 1.0;
-    S = diag(d.^-normPow)*W*diag(d.^-normPow);
-    
     ksumVals = [ksumVals; sum(sum(W))];
 end
 
 [~, imax] = max(diff(ksumVals));
 epsMax = epsVals(imax);
 eps = 4.0;
-
 
 figure();
 semilogx(epsVals, ksumVals, 'k--');
@@ -62,36 +56,56 @@ legend('sum', 'Chosen \epsilon', 'maximum slope \epsilon', 'median distance',...
     'Location', 'west');
 xlabel('\epsilon');
 ylabel('\Sigma_{ij} exp(-||z_i - z_j||^2/\epsilon^2 )');
+xlim([min(epsVals), max(epsVals)]);
+saveas(gcf(), sprintf('%s/epsValues.png', figureDir));
 
 
 %% Actually do Dmaps.
 % We certainly don't want to compute (too many) more output features than we have
 % input features.
-neigs = ndims;
+neigs = 16;
 
 % compute embedding coordinates
 [V, D] = dmaps(dz, eps, neigs);
 
-%% local linear regression
 
+%% local linear regression
 % regression kernel scale
 eps_med_scale = .5;
 
 % compute cross-validation error in fitting diffusion maps eigenvectors 
 % as a function of previous eigenvectors
 res = compute_residuals_DMAPS(V, eps_med_scale);
-res'
 
-%% Decide on first two best coordinates.
+
+%% Decide on two best coordinates.
+significanceThreshold = 0.6;
 [~, coordOrder] = sort(res, 'descend');
 k1 = coordOrder(1);
 k2 = coordOrder(2);
 for k=2:numel(res)
-    if res(k) < .5
+    if res(k) < significanceThreshold
         harm1 = k;
         break;
     end
 end
+
+
+%% Plot residuals themselves.
+figure();
+plot(res, 'k-');
+ylabel('r_k');
+xlabel('k');
+xlim([1, numel(res)]);
+
+line(xlim(), [significanceThreshold significanceThreshold], 'Color', 'red');
+line([k1 k1], ylim(), 'Color', 'blue');
+line([harm1 harm1], ylim(), 'Color', 'green');
+line([k2 k2], ylim(), 'Color', 'blue');
+
+legend('residuals', 'arbitrary significance threshold', 'chosen significant coordinates', 'first repeated coordinate');
+saveas(gcf(), sprintf('%s/resValues.png', figureDir));
+
 
 %% plot diffusion maps eigenvalues, colored by cross-validation error
 figure();
@@ -99,10 +113,12 @@ colored_bars(sqrt(diag(D)), res)
 set(gca, 'ylim', [0.0 1])
 xlabel('k')
 ylabel('$\sqrt{\mu_k}$', 'Interpreter', 'latex')
-
+xlim([0, neigs+1]);
 axis square
 colorbar
-title('Diffusion maps eigenvalues, colored by cross-validation error')
+title(sprintf('Diffusion maps eigenvalues,\ncolored by cross-validation error r_k'))
+saveas(gcf(), sprintf('%s/eigenvalueBarPlot.png', figureDir));
+
 
 %% 3d plots
 % plot original data
@@ -143,5 +159,6 @@ xlabel(sprintf('load(t=%d)', xinds(1))); ylabel(sprintf('load(t=%d)', xinds(2)))
 axis equal
 grid on
 colorbar
-
 title(sprintf('first identified repeated\neigendirection (k=%d)', harm1))
+
+saveas(gcf(), sprintf('%s/colorCoordinates.png', figureDir));
