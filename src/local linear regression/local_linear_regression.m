@@ -18,7 +18,7 @@ function [FX, RES] = local_linear_regression(Y, X, EPS_MED_SCALE)
 % error at the n points of interest
 
 % number of data points
-n = size(X, 1);
+[n, k] = size(X);
 
 % local kernel matrix
 K = squareform(pdist(X));
@@ -26,20 +26,36 @@ eps = median(K(:))/EPS_MED_SCALE;
 W = exp(-K.^2 / eps^2);
 
 % compute local fit for each data point
-L = zeros(n);
-for i=1:n
-    Xx = [ones(size(X,1),1) X-repmat(X(i,:), n, 1)];
+% Storage for alphas (constant terms)
+alphas = zeros(n, 1);
 
-    Xx2 = Xx'.*repmat(W(i,:), size(Xx, 2), 1);
-    A = (Xx2*Xx)\Xx2;
-    L(i,:) = A(1,:);
+% Storage for local linear coefficients.
+betas = zeros(n, k);
+
+% Storage for approximation.
+FX = zeros(n, 1);
+
+for i=1:n
+    % Xx has shape (n, k+1)
+    % It concatenates ones with the distance from the focal point i.
+    Xi = X-repmat(X(i,:), n, 1);
+    Xx = [ones(n, 1)    Xi];
+
+    % Xx2 has shape (k+1, n)
+    Xx2 = Xx' * diag(W(i, :));
+    
+    % Xx2*Xx has shape (k+1, k+1)
+    % A has shape (k+1, 1)
+    A = (Xx2*Xx)\Xx2 * Y;
+    
+    % Save fitted coefficients.
+    alphas(i) = A(1);
+    betas(i, :) = A(2:end);
+    
+    % Save the approximation.
+    FX(i) = alphas(i) + betas(i, :) * X(i, :)';
 end
 
-% functional approximation
-FX = L*Y;
-
-% % leave-one-out cross-validation errors
-% RES = sqrt(mean(((Y-FX)./(1-diag(L))).^2)) / std(Y);
 
 num = 0;
 for i=1:n
@@ -51,4 +67,6 @@ for i=1:n
     den = den + Y(i)^2;
 end
 
+
 RES = sqrt(num / den);
+end
