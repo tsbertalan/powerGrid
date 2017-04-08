@@ -22,10 +22,15 @@ function [FX, RES] = local_linear_regression(Y, X, EPS_MED_SCALE)
 
 % local kernel matrix
 K = squareform(pdist(X));
-eps = median(K(:))/EPS_MED_SCALE;
+eps = median(K(:)) / EPS_MED_SCALE;
+
+% zeroish = 1e-5;
+% nonzeroK = K(abs(K) > zeroish);
+% eps = mean(nonzeroK(:))/EPS_MED_SCALE;
+
 W = exp(-K.^2 / eps^2);
 
-% compute local fit for each data point
+%% Compute local fit for each data point.
 % Storage for alphas (constant terms)
 alphas = zeros(n, 1);
 
@@ -38,25 +43,37 @@ FX = zeros(n, 1);
 for i=1:n
     % Xx has shape (n, k+1)
     % It concatenates ones with the distance from the focal point i.
-    Xi = X-repmat(X(i,:), n, 1);
-    Xx = [ones(n, 1)    Xi];
+    Xi = X - repmat(X(i, :), n, 1);
+    Xx = [ones(n, 1) Xi];
 
     % Xx2 has shape (k+1, n)
+    % This line is the first significant deviation from Ronen's code.
     Xx2 = Xx' * diag(W(i, :));
     
     % Xx2*Xx has shape (k+1, k+1)
     % A has shape (k+1, 1)
-    A = (Xx2*Xx)\Xx2 * Y;
+    % Multiplying by Y here, rather than outside the loop, is the second
+    % deviation.    
+    A = pinv(Xx2*Xx) * Xx2 * Y;
+    
+%     % alternately
+%     A = (Xx2*Xx)\Xx2 * Y;
+
+%     % alternately alternately
+%     [Q, R] = qr(Xx2*Xx);
+%     A = R \ (Q' * Xx2) * Y;
     
     % Save fitted coefficients.
     alphas(i) = A(1);
     betas(i, :) = A(2:end);
     
     % Save the approximation.
-    FX(i) = alphas(i) + betas(i, :) * X(i, :)';
+    FX(i) = alphas(i);% + betas(i, :) * Xi(i, :)';
 end
 
 
+%% Compute pointwise residual.
+% This is the third deviation.
 num = 0;
 for i=1:n
     num = num + (Y(i) - FX(i))^2;
@@ -67,6 +84,6 @@ for i=1:n
     den = den + Y(i)^2;
 end
 
-
 RES = sqrt(num / den);
+
 end
