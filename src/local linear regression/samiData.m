@@ -2,11 +2,15 @@
 % for a swiss roll data set
 clear all;
 close all;
-figureDir = '../../doc/images/';
+
 
 
 %% Load datafile.
-load('../../data/generatorLoads.mat');
+%Read in data (280 arrays of 24 length)
+demandfile = xlsread('../oneday825mw.xlsx');
+
+data = demandfile(:, 2:25);
+
 [N, ndims] = size(data);
 
 % Normalize the data.
@@ -27,7 +31,7 @@ xlim([1, size(data, 2)]);
 xlabel('time [h]');
 ylabel('generator load');
 title('raw data');
-saveas(gcf(), sprintf('%s/rawData.png', figureDir));
+%saveas(gcf(), sprintf('%s/rawData.png', figureDir));
 
 
 %% diffusion maps
@@ -57,7 +61,7 @@ legend('sum', 'Chosen \epsilon', 'maximum slope \epsilon', 'median distance',...
 xlabel('\epsilon');
 ylabel('\Sigma_{ij} exp(-||z_i - z_j||^2/\epsilon^2 )');
 xlim([min(epsVals), max(epsVals)]);
-saveas(gcf(), sprintf('%s/epsValues.png', figureDir));
+%saveas(gcf(), sprintf('%s/epsValues.png', figureDir));
 
 
 %% Actually do Dmaps.
@@ -65,11 +69,13 @@ saveas(gcf(), sprintf('%s/epsValues.png', figureDir));
 % input features.
 neigs = 16;
 
+rng(4); 
+
 % compute embedding coordinates
 [V, D] = dmaps(dz, eps, neigs);
 
 
-%% local linear regression
+% local linear regression
 % regression kernel scale
 eps_med_scale = .5;
 
@@ -104,7 +110,7 @@ line([harm1 harm1], ylim(), 'Color', 'green');
 line([k2 k2], ylim(), 'Color', 'blue');
 
 legend('residuals', 'arbitrary significance threshold', 'chosen significant coordinates', 'first repeated coordinate');
-saveas(gcf(), sprintf('%s/resValues.png', figureDir));
+%saveas(gcf(), sprintf('%s/resValues.png', figureDir));
 
 
 %% plot diffusion maps eigenvalues, colored by cross-validation error
@@ -116,9 +122,28 @@ ylabel('$\sqrt{\mu_k}$', 'Interpreter', 'latex')
 xlim([0, neigs+1]);
 axis square
 colorbar
-title(sprintf('Diffusion maps eigenvalues,\ncolored by cross-validation error r_k'))
-saveas(gcf(), sprintf('%s/eigenvalueBarPlot.png', figureDir));
+title(sprintf('Diffusion maps eigenvalues,\ncolored by cross-validation error r_k; original residual code'))
+%saveas(gcf(), sprintf('%s/eigenvalueBarPlot-originalResidualCode.png', figureDir));
 
+
+%% Make a grid of of dmap pairs, all vs. the second one.
+nrows = 4;
+ncols = 4;
+figure('Position', [10, 10, 1000, 1000]);
+commonIndex = 2;
+for i=1:nrows*ncols
+    subplot(nrows, ncols, i);
+    if (i == k1) || (i == k2)
+        scatter(V(:, commonIndex), V(:, i), 'r.');
+    else
+        scatter(V(:, commonIndex), V(:, i), 'k.');
+    end
+    ylabel(sprintf('v_{%d}', i));
+    xlabel(sprintf('v_{%d}', commonIndex));
+    set(gca,'xtick',[]); set(gca,'ytick',[]);
+    set(gca,'xticklabel',[]); set(gca,'yticklabel',[]);
+end
+    
 
 %% 3d plots
 % plot original data
@@ -161,4 +186,4 @@ grid on
 colorbar
 title(sprintf('first identified repeated\neigendirection (k=%d)', harm1))
 
-saveas(gcf(), sprintf('%s/colorCoordinates.png', figureDir));
+%saveas(gcf(), sprintf('%s/colorCoordinates.png', figureDir));
